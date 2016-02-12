@@ -1,0 +1,25 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "jojonki",
+    "enableMultiJS": true,
+    "longName": "Pebble Pomodoro",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "sdkVersion": "3",
+    "shortName": "Pebble Pomodoro",
+    "targetPlatforms": [
+        "aplite",
+        "basalt",
+        "chalk"
+    ],
+    "uuid": "6ca20286-fedd-4e7a-962f-c48ec4acbee9",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
