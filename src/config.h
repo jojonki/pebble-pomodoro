@@ -9,3 +9,8 @@
 // #define MINUTES_RADIUS PBL_IF_ROUND_ELSE(60, 60)
 // #define HOURS_RADIUS 3
 // #define INSET PBL_IF_ROUND_ELSE(5, 3)
+
+
+#define HAND_MARGIN  15
+#define ANTIALIASING true
+#define METER_THICKNESS 20

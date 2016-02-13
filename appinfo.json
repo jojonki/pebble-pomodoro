@@ -5,13 +5,21 @@
     ],
     "companyName": "jojonki",
     "enableMultiJS": true,
-    "longName": "Pebble Pomodoro",
+    "longName": "Pebble",
     "projectType": "native",
     "resources": {
-        "media": []
+        "media": [
+            {
+                "file": "images/icon",
+                "menuIcon": true,
+                "name": "IMAGE_ICON",
+                "targetPlatforms": null,
+                "type": "png-trans"
+            }
+        ]
     },
     "sdkVersion": "3",
-    "shortName": "Pebble Pomodoro",
+    "shortName": "Pomodoro",
     "targetPlatforms": [
         "aplite",
         "basalt",

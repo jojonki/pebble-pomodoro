@@ -1,11 +1,6 @@
 #include <pebble.h>
 #include "pomodoro.h"
 
-// #define COLORS       PBL_IF_COLOR_ELSE(true, false)
-#define ANTIALIASING true
-
-#define HAND_MARGIN  15
-
 typedef struct {
   int hours;
   int minutes;
@@ -29,13 +24,13 @@ static void show_round_meter(GContext *ctx, GRect *bounds) {
   int32_t start_break = minute_angle + 150; // 150 == 360 * 25 / 60
   int32_t end_break = start_break + 30; // 30 == 360 * 5 / 60
   graphics_context_set_fill_color(ctx, GColorRajah);
-  graphics_fill_radial(ctx, frame, GOvalScaleModeFitCircle, 15, DEG_TO_TRIGANGLE(minute_angle), DEG_TO_TRIGANGLE(start_break));
+  graphics_fill_radial(ctx, frame, GOvalScaleModeFitCircle, METER_THICKNESS, DEG_TO_TRIGANGLE(minute_angle), DEG_TO_TRIGANGLE(start_break));
   graphics_context_set_fill_color(ctx, GColorMintGreen);
-  graphics_fill_radial(ctx, frame, GOvalScaleModeFitCircle, 15, DEG_TO_TRIGANGLE(start_break), DEG_TO_TRIGANGLE(end_break));  
+  graphics_fill_radial(ctx, frame, GOvalScaleModeFitCircle, METER_THICKNESS, DEG_TO_TRIGANGLE(start_break), DEG_TO_TRIGANGLE(end_break));  
 
   // hour dots
   static int s_hour_dot_radius = 2;
-  frame = grect_inset(frame, GEdgeInsets(4 * s_hour_dot_radius));
+  frame = grect_inset(frame, GEdgeInsets(5 * s_hour_dot_radius));
   for(int i = 0; i < 12; i++) {
     int hour_angle = i * 360 / 12;
     GPoint pos = gpoint_from_polar(frame, GOvalScaleModeFitCircle, DEG_TO_TRIGANGLE(hour_angle));
@@ -46,7 +41,12 @@ static void show_round_meter(GContext *ctx, GRect *bounds) {
 }
 
 static void update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
+  APP_LOG(APP_LOG_LEVEL_WARNING, "UPDATE_PROC");
+  
+  GRect bounds = layer_get_bounds(s_canvas_layer);
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+  show_round_meter(ctx, &bounds);
 
   graphics_context_set_antialiased(ctx, ANTIALIASING);
 
@@ -60,7 +60,7 @@ static void update_proc(Layer *layer, GContext *ctx) {
 
   // Plot hands
   GPoint minute_hand = (GPoint) {
-    .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * mode_time.minutes / 60) * (int32_t)(s_radius - HAND_MARGIN) / TRIG_MAX_RATIO) + s_center.x,
+    .x = (int16_t)(sin_lookup(TRIG_MAX_ANGLE * mode_time.minutes / 60 ) * (int32_t)(s_radius - HAND_MARGIN) / TRIG_MAX_RATIO) + s_center.x,
     .y = (int16_t)(-cos_lookup(TRIG_MAX_ANGLE * mode_time.minutes / 60) * (int32_t)(s_radius - HAND_MARGIN) / TRIG_MAX_RATIO) + s_center.y,
   };
   GPoint hour_hand = (GPoint) {
@@ -81,15 +81,6 @@ static void update_proc(Layer *layer, GContext *ctx) {
   // center dot
   graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_circle(ctx, s_center, 7);
-}
-
-static void update_window_layer(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-
-  show_round_meter(ctx, &bounds);
 }
 
 void main_window_sec_update(int hours, int minutes, int seconds) {
@@ -118,17 +109,17 @@ static void window_load(Window *window) {
   s_center = grect_center_point(&window_bounds);
 
   s_canvas_layer = layer_create(window_bounds);
-  layer_set_update_proc(s_canvas_layer, update_proc);
   layer_add_child(window_layer, s_canvas_layer);
   
-  
+  // left time label
   s_left_label = text_layer_create(GRect(46, 102, 110, 40));
   text_layer_set_background_color(s_left_label, GColorClear);
   text_layer_set_text_color(s_left_label, GColorBrilliantRose);
   text_layer_set_font(s_left_label, fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS));
   layer_add_child(window_layer, text_layer_get_layer(s_left_label));
-  
-  layer_set_update_proc(window_layer, update_window_layer);
+
+  layer_set_update_proc(s_canvas_layer, update_proc);
+
 }
 
 static void window_unload(Window *window) {
