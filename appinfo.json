@@ -10,14 +10,6 @@
     "resources": {
         "media": [
             {
-                "file": "images/JOJONKI2",
-                "name": "IMAGE_JOJONKI2_ICON",
-                "targetPlatforms": [
-                    "chalk"
-                ],
-                "type": "bitmap"
-            },
-            {
                 "file": "images/JOJONKI_ICON",
                 "name": "JOJONKI_ICON",
                 "targetPlatforms": [

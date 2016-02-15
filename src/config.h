@@ -16,3 +16,17 @@
 #define METER_THICKNESS 20
 
 #define TEA_TEXT_GAP 14
+
+typedef struct {
+  int hours;
+  int minutes;
+} Time;
+
+typedef struct {
+  char name[16];  // Name of this tea
+} MenuInfo;
+
+MenuInfo menu_array[] = {
+  {"Stop"},
+  {"Reset"},
+};
