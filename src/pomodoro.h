@@ -6,4 +6,3 @@
 
 void main_window_push();
 void main_window_sec_update(int hours, int minutes, int seconds);
-void main_window_min_update(int hours, int minutes);

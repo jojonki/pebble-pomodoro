@@ -14,3 +14,5 @@
 #define HAND_MARGIN  15
 #define ANTIALIASING true
 #define METER_THICKNESS 20
+
+#define TEA_TEXT_GAP 14

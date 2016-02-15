@@ -1,7 +1,7 @@
 {
     "appKeys": {},
     "capabilities": [
-        ""
+        "configurable"
     ],
     "companyName": "jojonki",
     "enableMultiJS": true,
@@ -10,10 +10,19 @@
     "resources": {
         "media": [
             {
-                "file": "images/icon",
-                "menuIcon": true,
-                "name": "IMAGE_ICON",
-                "targetPlatforms": null,
+                "file": "images/JOJONKI2",
+                "name": "IMAGE_JOJONKI2_ICON",
+                "targetPlatforms": [
+                    "chalk"
+                ],
+                "type": "bitmap"
+            },
+            {
+                "file": "images/JOJONKI_ICON",
+                "name": "JOJONKI_ICON",
+                "targetPlatforms": [
+                    "chalk"
+                ],
                 "type": "png-trans"
             }
         ]
@@ -21,8 +30,6 @@
     "sdkVersion": "3",
     "shortName": "Pomodoro",
     "targetPlatforms": [
-        "aplite",
-        "basalt",
         "chalk"
     ],
     "uuid": "6ca20286-fedd-4e7a-962f-c48ec4acbee9",
