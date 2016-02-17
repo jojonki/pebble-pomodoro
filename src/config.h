@@ -15,8 +15,6 @@
 #define ANTIALIASING true
 #define METER_THICKNESS 20
 
-#define TEA_TEXT_GAP 14
-
 typedef struct {
   int hours;
   int minutes;
@@ -27,6 +25,6 @@ typedef struct {
 } MenuInfo;
 
 MenuInfo menu_array[] = {
+  {"Restart"},
   {"Stop"},
-  {"Reset"},
 };

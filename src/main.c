@@ -3,6 +3,8 @@
 
 #define POMODORO_TIME (60*25+10)
 #define POMODORO_REST_TIME (60*5)
+//#define POMODORO_TIME (60)
+//#define POMODORO_REST_TIME (60)
 
 #define POMODORO_COLOR GColorBrilliantRose
 #define POMODORO_REST_COLOR GColorCyan
@@ -17,29 +19,71 @@ static Time s_last_time, s_meter_time;
 static int s_radius = 80;
 
 static TextLayer *s_left_label;
-static uint16_t s_left_time = 0;
-static bool s_rest_time = false;
 
-#define WAKEUP_REASON 0
-#define PERSIST_KEY_WAKEUP_ID 42
-static WakeupId s_wakeup_id;
+#define WAKEUP_REASON_POMODORO_END 0
+#define WAKEUP_REASON_REST_END 1
+static WakeupId s_wakeup_id = -1;
+static time_t s_wakeup_timestamp = 0;
+static char s_left_time_buf[16];
+
+static bool s_is_running = false;
+
+enum {
+  PERSIST_WAKEUP, // Persistent storage key for wakeup_id
+  PERSIST_METER_HOUR,
+  PERSIST_METER_MIN
+};
 
 /*
  * Main Window Settings
  */
-static void reset_time(bool start_pomodoro) {
+static void reset_wakeup() {
+  wakeup_cancel(s_wakeup_id);
+  s_wakeup_id = -1;
+  s_wakeup_timestamp = 0;
+  persist_delete(PERSIST_WAKEUP);
+}
+
+static void start_pomodoro() {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "start pomodoro");
+  
+  s_is_running = true;
+  vibes_long_pulse();
+  
   srand(time(NULL));
   time_t t = time(NULL);
   struct tm *time_now = localtime(&t);
-  if(start_pomodoro) {
-    s_left_time = POMODORO_TIME;
-    s_meter_time.hours = time_now->tm_hour;
-    s_meter_time.minutes = time_now->tm_min;
-    text_layer_set_text_color(s_left_label, POMODORO_COLOR);
-  } else {
-    s_left_time = POMODORO_REST_TIME;
-    text_layer_set_text_color(s_left_label, POMODORO_REST_COLOR);
+  
+  reset_wakeup();
+  time_t wakeup_time = time(NULL) + POMODORO_TIME;
+  s_wakeup_id = wakeup_schedule(wakeup_time, WAKEUP_REASON_POMODORO_END, true);
+  persist_write_int(PERSIST_WAKEUP, s_wakeup_id);
+    
+  persist_write_int(PERSIST_METER_HOUR, time_now->tm_hour);
+  persist_write_int(PERSIST_METER_MIN, time_now->tm_min);
+  s_meter_time.hours = persist_read_int(PERSIST_METER_HOUR);
+  s_meter_time.minutes = persist_read_int(PERSIST_METER_MIN);
+  
+  //text_layer_set_text_color(s_left_label, POMODORO_COLOR);
+}
+
+static void start_pomodoro_rest() {
+  vibes_double_pulse();
+  APP_LOG(APP_LOG_LEVEL_ERROR, "start rest");
+  time_t wakeup_time = time(NULL) + POMODORO_REST_TIME;
+  s_wakeup_id = wakeup_schedule(wakeup_time, WAKEUP_REASON_REST_END, true);
+  if (s_wakeup_id <= 0) {
+    APP_LOG(APP_LOG_LEVEL_ERROR, "FAILED to scheduling");
   }
+  persist_write_int(PERSIST_WAKEUP, s_wakeup_id);
+  //text_layer_set_text_color(s_left_label, POMODORO_REST_COLOR);
+}
+
+static void stop_pomodoro() {
+  s_is_running = false;
+  reset_wakeup();
+  text_layer_set_text(s_left_label, "00:00");
+  //layer_mark_dirty(text_layer_get_layer(s_left_label));
 }
 
 static void show_round_meter(GContext *ctx, GRect *bounds) {
@@ -68,10 +112,13 @@ static void show_round_meter(GContext *ctx, GRect *bounds) {
 }
 
 static void update_main_proc(Layer *layer, GContext *ctx) {
+  APP_LOG(APP_LOG_LEVEL_ERROR, "update plot hands");
   GRect bounds = layer_get_bounds(s_main_layer);
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  show_round_meter(ctx, &bounds);
+  if(s_is_running) {
+    show_round_meter(ctx, &bounds);
+  }
 
   graphics_context_set_antialiased(ctx, ANTIALIASING);
 
@@ -116,6 +163,23 @@ static void main_click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, main_select_click_handler);
 }
 
+static void timer_handler(void *data) {
+  APP_LOG(APP_LOG_LEVEL_WARNING, "timer_handler: wakeup_timestamp:%d", (int)s_wakeup_timestamp);
+  //APP_LOG(APP_LOG_LEVEL_WARNING, "%d", (int)s_wakeup_timestamp);
+  if(s_is_running) {
+    if (s_wakeup_timestamp == 0) {
+      // get the wakeup timestamp for showing a countdown
+      wakeup_query(s_wakeup_id, &s_wakeup_timestamp);
+    }
+  
+    int countdown = s_wakeup_timestamp - time(NULL);
+    snprintf(s_left_time_buf, sizeof(s_left_time_buf), "%02d:%02d", countdown/60, countdown%60);
+    text_layer_set_text(s_left_label, s_left_time_buf);
+  }
+  layer_mark_dirty(text_layer_get_layer(s_left_label));
+  app_timer_register(1000, timer_handler, data);
+}
+
 static void window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
@@ -136,46 +200,17 @@ static void window_load(Window *window) {
 
   layer_set_update_proc(s_main_layer, update_main_proc);
   
-  // set wakeup
-  APP_LOG(APP_LOG_LEVEL_WARNING, "wakeup set!");
-  time_t future_time = time(NULL) + 60 * 25 + 10;
-  s_wakeup_id = wakeup_schedule(future_time, WAKEUP_REASON, true);
-  persist_write_int(PERSIST_KEY_WAKEUP_ID, s_wakeup_id);
+  app_timer_register(0, timer_handler, NULL);
 }
 
 static void window_unload(Window *window) {
   layer_destroy(s_main_layer);
 }
 
-static void sec_tick_handler(struct tm *time_now, TimeUnits changed) {
+static void min_tick_handler(struct tm *time_now, TimeUnits changed) {
   s_last_time.hours = time_now->tm_hour;
   s_last_time.hours -= (s_last_time.hours > 12) ? 12 : 0;
   s_last_time.minutes = time_now->tm_min;
-
-  // show left time by minutes and sec
-  s_left_time -= 1;
-  if(s_left_time <= 0) {
-    if(s_rest_time) {
-      // start pomodoro
-      s_rest_time = false;
-      vibes_double_pulse();
-      reset_time(true);
-    } else {
-      // take rest
-      s_rest_time = true;
-      vibes_long_pulse();
-      reset_time(false);
-    }
-  }
-  
-  static char s_left_time_buf[16];
-  snprintf(s_left_time_buf, sizeof(s_left_time_buf), "%02d:%02d", s_left_time / 60, s_left_time % 60);
-  text_layer_set_text(s_left_label, s_left_time_buf);
-  
-  // Redraw
-  if(s_main_layer) {
-    layer_mark_dirty(s_main_layer);
-  }
 }
 
 /*
@@ -184,10 +219,10 @@ static void sec_tick_handler(struct tm *time_now, TimeUnits changed) {
 static void menu_select_callback(struct MenuLayer *s_menu_layer, MenuIndex *cell_index, void *callback_context) {
   switch(cell_index->row) {
     case 0:
-      reset_time(true);
+      start_pomodoro();
       break;
     case 1:
-      reset_time(true);
+      stop_pomodoro();
       break;
   }
   window_stack_pop(false);
@@ -223,17 +258,6 @@ static void menu_window_load(Window *window) {
   }); 
   menu_layer_set_click_config_onto_window(s_menu_layer,	window);
   layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
-
-  /*
-  s_error_text_layer = text_layer_create((GRect) { .origin = {0, 44}, .size = {bounds.size.w, 60}});
-  text_layer_set_text(s_error_text_layer, "Cannot\nschedule");
-  text_layer_set_text_alignment(s_error_text_layer, GTextAlignmentCenter);
-  text_layer_set_font(s_error_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  text_layer_set_text_color(s_error_text_layer, GColorWhite);
-  text_layer_set_background_color(s_error_text_layer, GColorBlack);
-  layer_set_hidden(text_layer_get_layer(s_error_text_layer), true);
-  layer_add_child(window_layer, text_layer_get_layer(s_error_text_layer));
-  */
 }
 
 static void menu_window_unload(Window *window) {
@@ -241,24 +265,40 @@ static void menu_window_unload(Window *window) {
   text_layer_destroy(s_error_text_layer);
 }
 
-/*
 static void wakeup_handler(WakeupId id, int32_t reason) {
-  APP_LOG(APP_LOG_LEVEL_WARNING, "wakeup_handler...");
-  vibes_long_pulse();
-  text_layer_set_text(s_left_label, "wakupe");
-
-  // Delete the ID
-  persist_delete(PERSIST_KEY_WAKEUP_ID);
+  APP_LOG(APP_LOG_LEVEL_WARNING, "wakeup_handler...reason is %d", (int)reason);
+  
+  reset_wakeup();
+  switch(reason) {
+    case WAKEUP_REASON_POMODORO_END:
+      start_pomodoro_rest();
+    break;
+    case WAKEUP_REASON_REST_END:
+      start_pomodoro();
+    break;
+  }
 }
-*/
 
 static void init() {
-  s_left_time = POMODORO_TIME;
-  srand(time(NULL));
-  time_t t = time(NULL);
-  struct tm *time_now = localtime(&t);
-  s_meter_time.hours = time_now->tm_hour;
-  s_meter_time.minutes = time_now->tm_min;
+  bool wakeup_scheduled = false;
+  if (persist_exists(PERSIST_WAKEUP)) {
+    s_wakeup_id = persist_read_int(PERSIST_WAKEUP);
+    if (wakeup_query(s_wakeup_id, NULL)) {
+      wakeup_scheduled = true;
+    } else {
+      reset_wakeup();
+    }
+  }
+    
+  if(wakeup_scheduled == false) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "new schedule");
+    start_pomodoro();
+  } else {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "already scheduled");
+    s_is_running = true;
+  }
+  s_meter_time.hours = persist_read_int(PERSIST_METER_HOUR);
+  s_meter_time.minutes = persist_read_int(PERSIST_METER_MIN);
   
   s_main_window = window_create();
   window_set_click_config_provider(s_main_window, main_click_config_provider);
@@ -267,7 +307,8 @@ static void init() {
     .load = window_load,
     .unload = window_unload,
   });
-  tick_timer_service_subscribe(SECOND_UNIT, sec_tick_handler);
+  //tick_timer_service_subscribe(SECOND_UNIT, sec_tick_handler);
+  tick_timer_service_subscribe(MINUTE_UNIT, min_tick_handler);
   
   s_menu_window = window_create();
   window_set_window_handlers(s_menu_window, (WindowHandlers){
@@ -276,23 +317,9 @@ static void init() {
   });
   
   // Subscribe to Wakeup API
-  //wakeup_service_subscribe(wakeup_handler);
+  wakeup_service_subscribe(wakeup_handler);
 
-  // Was this a wakeup launch?
-  if (launch_reason() == APP_LAUNCH_WAKEUP) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "APP_LAUNCH_WAKEUP");
-    /*
-    // The app was started by a wakeup
-    WakeupId id = 0;
-    int32_t reason = 0;
-
-    // Get details and handle the wakeup
-    wakeup_get_launch_event(&id, &reason);
-    wakeup_handler(id, reason);
-    */
-  } else {
-    window_stack_push(s_main_window, true);
-  }
+  window_stack_push(s_main_window, true);
 }
 
 static void deinit() {
