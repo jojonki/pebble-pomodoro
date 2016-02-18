@@ -1,23 +1,14 @@
 {
     "appKeys": {},
     "capabilities": [
-        "configurable"
+        ""
     ],
     "companyName": "jojonki",
     "enableMultiJS": true,
     "longName": "Pebble",
     "projectType": "native",
     "resources": {
-        "media": [
-            {
-                "file": "images/JOJONKI_ICON",
-                "name": "JOJONKI_ICON",
-                "targetPlatforms": [
-                    "chalk"
-                ],
-                "type": "png-trans"
-            }
-        ]
+        "media": []
     },
     "sdkVersion": "3",
     "shortName": "Pomodoro",
